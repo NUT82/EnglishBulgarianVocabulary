@@ -4,6 +4,8 @@ using DataBaseVocabulary.Models;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace DataBaseVocabulary
 {
@@ -18,10 +20,10 @@ namespace DataBaseVocabulary
             menu.Push(menues["Main Menu"]);
 
             PrintMenu(menu.Peek());
-
             string input;
             while ((input = ReadMenuInput(menu.Peek())) != "Exit")
             {
+
                 if (input == null)
                 {
                     Console.WriteLine("Invalid choise!!!");
@@ -38,7 +40,7 @@ namespace DataBaseVocabulary
                     continue;
                 }
 
-                if (menu.Count == 1)
+                if (menues.ContainsKey(input))
                 {
                     PrintSubMenu(menues, menu, input);
                     continue;
@@ -48,29 +50,263 @@ namespace DataBaseVocabulary
                 {
                     case "English Word":
                     case "Bulgarian Word":
-                        AddNewWordToDB(input);
+                        switch (menu.Peek().Name)
+                        {
+                            case "Add New Words":
+                                AddNewWordToDB(input);
+                                break;
+                            case "Remove Words":
+                                RemoveWordsFromDb(input);
+                                break;
+                            case "Update Words":
+                                UpdateWordsInDB(input);
+                                break;
+                            case "Show Me All Words":
+                                ShowMeAllWords(input);
+                                break;
+                        }
+                        break;
+                    case "New Game":
+                        NewGame();
                         break;
                 }
+
+                PrintMenu(menu.Peek());
             }
-            
+        }
+
+        private static void NewGame()
+        {
+            string input = "Bulgarian";
+            Random random = new Random();
+            if (random.Next(1,100) < 50)
+            {
+                input = "English";
+            }
+            Dictionary<string, List<String>> result = GetAllWords(input);
+            string[] keys = result.Keys.ToArray();
+
+            do
+            {
+                Console.Clear();
+                string randomWord = keys[random.Next(keys.Length)];
+                string answer;
+                Console.WriteLine($"Translate {input} Word {randomWord}");
+                if (input == "English")
+                {
+                    answer = GetInputForBulgarianWord();
+                }
+                else
+                {
+                    answer = GetInputForEnglishWord();
+                }
+
+                if (result[randomWord].Contains(answer))
+                {
+                    Console.WriteLine("YOU WIN! CONGRATULATIONS!!! :)");
+                }
+                else
+                {
+                    Console.WriteLine("YOU LOOSE!!! STUDY MORE!!! :(");
+                }
+
+                Console.WriteLine("Press any key to continue, or ESC to End Game!");
+            } while (Console.ReadKey().Key != ConsoleKey.Escape);
+        }
+
+        private static void ShowMeAllWords(string input)
+        {
+            Dictionary<string, List<String>> result = GetAllWords(input);
+
+            foreach (var item in result)
+            {
+                Console.WriteLine($"{item.Key} - {string.Join(", ", item.Value)}");
+            }
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadKey();
+        }
+
+        private static Dictionary<string, List<string>> GetAllWords(string input)
+        {
+            VocabolaryDBContext context = new VocabolaryDBContext();
+            Dictionary<string, List<string>> result = new Dictionary<string, List<string>>();
+
+            var words = context.BulgarianWordsEnglishWords
+                    .Select(w => new
+                    {
+                        EnglishWord = w.EnglishWord.Word,
+                        BulgarianWord = w.BulgarianWord.Word
+                    }).ToList();
+
+            if (input.Contains("English"))
+            {
+                foreach (var word in words)
+                {
+                    if (!result.ContainsKey(word.EnglishWord))
+                    {
+                        result.Add(word.EnglishWord, new List<string>());
+                    }
+
+                    result[word.EnglishWord].Add(word.BulgarianWord);
+                }
+            }
+            else
+            {
+                foreach (var word in words)
+                {
+                    if (!result.ContainsKey(word.BulgarianWord))
+                    {
+                        result.Add(word.BulgarianWord, new List<string>());
+                    }
+
+                    result[word.BulgarianWord].Add(word.EnglishWord);
+                }
+            }
+
+            return result;
+        }
+
+        private static void UpdateWordsInDB(string input)
+        {
+            return;
+        }
+
+        private static void RemoveWordsFromDb(string input)
+        {
+            VocabolaryDBContext context = new VocabolaryDBContext();
+
+            if (input.Contains("English"))
+            {
+                string inputEnglishWord = GetInputForEnglishWord();
+                var englishWordToDelete = context.EnglishWords.FirstOrDefault(w => w.Word == inputEnglishWord);
+                if (englishWordToDelete is null)
+                {
+                    Console.WriteLine($"Word {inputEnglishWord} dosn't exist!");
+                    Console.WriteLine("Press any key to continue...");
+                    Console.ReadKey();
+                    return;
+                }
+
+                context.Remove(englishWordToDelete);
+            }
+            else
+            {
+                string inputbBulgarianWord = GetInputForBulgarianWord();
+                var bulgarianWordToDelete = context.BulgarianWords.FirstOrDefault(w => w.Word == inputbBulgarianWord);
+                if (bulgarianWordToDelete is null)
+                {
+                    Console.WriteLine($"Word {inputbBulgarianWord} dosn't exist!");
+                    Console.WriteLine("Press any key to continue...");
+                    Console.ReadKey();
+                    return;
+                }
+
+                context.Remove(bulgarianWordToDelete);
+            }
+            context.SaveChanges();
         }
 
         private static void AddNewWordToDB(string input)
         {
-
+            string inputEnglishWord;
+            string inputbBulgarianWord;
             VocabolaryDBContext context = new VocabolaryDBContext();
-            Console.WriteLine("Enter English word:");
-            string word = Console.ReadLine();
-            Console.WriteLine("Enter word in Bulgarian:");
-            string translateWord = Console.ReadLine();
+
+            if (input.Contains("English"))
+            {
+                inputEnglishWord = GetInputForEnglishWord();
+                inputbBulgarianWord = GetInputForBulgarianWord();
+            }
+            else
+            {
+                inputbBulgarianWord = GetInputForBulgarianWord();
+                inputEnglishWord = GetInputForEnglishWord();
+            }
+
+            int? idEnglishWord = null;
+            int? idBulgarianWord = null;
+            try
+            {
+                idEnglishWord = context.EnglishWords.FirstOrDefault(w => w.Word == inputEnglishWord).EnglishWordId;
+                idBulgarianWord = context.BulgarianWords.FirstOrDefault(w => w.Word == inputbBulgarianWord).BulgarianWordId;
+            }
+            catch (NullReferenceException ex)
+            {
+                //one or both words dosnt contain i DB
+            }
+
+            if (context.BulgarianWordsEnglishWords.Find(idEnglishWord, idBulgarianWord) != null)
+            {
+                Console.WriteLine("Words already exists!");
+                Console.WriteLine("Press any key to continue...");
+                Console.ReadKey();
+                return;
+            }
+
+            EnglishWord englishWord;
+            BulgarianWord bulgarianWord;
+            if (idEnglishWord is null)
+            {
+                englishWord = new EnglishWord { Word = inputEnglishWord, Points = 1 };
+            }
+            else
+            {
+                englishWord = context.EnglishWords.Find(idEnglishWord);
+            }
+
+            if (idBulgarianWord is null)
+            {
+                bulgarianWord = new BulgarianWord { Word = inputbBulgarianWord, Points = 1 };
+            }
+            else
+            {
+                bulgarianWord = context.BulgarianWords.Find(idBulgarianWord);
+            }
 
             context.Add(new BulgarianWordEnglishWord
             {
-                EnglishWord = new EnglishWord { Word = word, Points = 1 } ,
-                BulgarianWord = new BulgarianWord { Word = translateWord, Points = 1},
+                EnglishWord = englishWord,
+                BulgarianWord = bulgarianWord,
             });
 
             context.SaveChanges();
+            //var englishWords = context.BulgarianWords.Where(w => w.Word == bulgarianWord).Select(w => w.EnglishWords).ToHashSet();
+            //var bulgarianWords = context.EnglishWords.Where(w => w.Word == englishWord).Select(w => w.BulgarianWords).ToHashSet();
+        }
+
+        private static string GetInputForBulgarianWord()
+        {
+            string word;
+            while (true)
+            {
+                Console.WriteLine("Enter word in Bulgarian:");
+                word = Console.ReadLine();
+
+                if (!Regex.IsMatch(word, @"[A-Za-z]"))
+                {
+                    break;
+                }
+
+                Console.WriteLine("Word must conatain only Bulgarian letters!");
+            }
+            return word.Trim().ToLower();
+        }
+
+        private static string GetInputForEnglishWord()
+        {
+            string word;
+            while (true)
+            {
+                Console.WriteLine("Enter English word:");
+                word = Console.ReadLine();
+                if (!Regex.IsMatch(word, @"[А-Яа-я]"))
+                {
+                    break;
+                }
+
+                Console.WriteLine("Word must conatain only English letters!");
+            }
+            return word.Trim().ToLower();
         }
 
         private static void PrintSubMenu(Dictionary<string, Menu> menues, Stack<Menu> menu, string input)
