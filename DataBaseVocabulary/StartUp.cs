@@ -58,9 +58,6 @@ namespace DataBaseVocabulary
                             case "Remove Words":
                                 RemoveWordsFromDb(input);
                                 break;
-                            case "Update Words":
-                                UpdateWordsInDB(input);
-                                break;
                             case "Show Me All Words":
                                 ShowMeAllWords(input);
                                 break;
@@ -69,14 +66,43 @@ namespace DataBaseVocabulary
                     case "New Game":
                         NewGame();
                         break;
+                    case "Score":
+                        ShowScore();
+                        break;
                 }
 
                 PrintMenu(menu.Peek());
             }
         }
 
+        private static void ShowScore()
+        {
+            VocabolaryDBContext context = new VocabolaryDBContext();
+            var games = context.Games
+                .Select(g => new
+                {
+                    GuesWords = g.GuesBulgarianWords + g.GuesEnglishWords,
+                    g.UserName,
+                    g.Points
+                })
+                .Take(10)
+                .OrderByDescending(g => g.Points)
+                .ThenByDescending(g => g.GuesWords);
+
+            Console.Clear();
+            int count = 1;
+            foreach (var game in games)
+            {
+                Console.WriteLine($"{count++}. User {game.UserName} - guuess words {game.GuesWords} - TOTAL POINTS - {game.Points}");
+            }
+
+            Console.WriteLine("Press any key to continue...");
+            Console.ReadKey();
+        }
+
         private static void NewGame()
         {
+            
             string input = "Bulgarian";
             Random random = new Random();
             if (random.Next(1,100) < 50)
@@ -84,8 +110,19 @@ namespace DataBaseVocabulary
                 input = "English";
             }
             Dictionary<string, List<String>> result = GetAllWords(input);
+            if (result.Count == 0)
+            {
+                Console.WriteLine($"There is no words in {input} dictionary, plese add some first! ");
+                return;
+            }
             string[] keys = result.Keys.ToArray();
 
+            Console.Clear();
+            Console.WriteLine("Please enter your name:");
+            string userName = Console.ReadLine();
+            int points = 0;
+            int guessCount = 0;
+            int accelerator = 1;
             do
             {
                 Console.Clear();
@@ -103,15 +140,48 @@ namespace DataBaseVocabulary
 
                 if (result[randomWord].Contains(answer))
                 {
-                    Console.WriteLine("YOU WIN! CONGRATULATIONS!!! :)");
+                    guessCount++;
+                    points += accelerator;
+                    Console.WriteLine($"YOU WIN {accelerator} points! CONGRATULATIONS!!! :)");
+                    accelerator *= 2;
                 }
                 else
                 {
                     Console.WriteLine("YOU LOOSE!!! STUDY MORE!!! :(");
+                    accelerator = 1;
                 }
 
-                Console.WriteLine("Press any key to continue, or ESC to End Game!");
+                Console.WriteLine($"You have {points} total points! Press any key to continue, or ESC to End Game!");
             } while (Console.ReadKey().Key != ConsoleKey.Escape);
+
+            if (points > 0)
+            {
+                AddNewScore(userName, guessCount, points, input);
+            }
+        }
+
+        private static void AddNewScore(string userName, int guessCount, int points, string input)
+        {
+            int guessBulgarianWords = 0;
+            int guessEnglishWords = 0;
+            VocabolaryDBContext context = new VocabolaryDBContext();
+            if (input == "Bulgarian")
+            {
+                guessBulgarianWords = guessCount;
+            }
+            else
+            {
+                guessEnglishWords = guessCount;
+            }
+
+            context.Games.Add(new Game
+            {
+                GuesBulgarianWords = guessBulgarianWords,
+                GuesEnglishWords = guessEnglishWords,
+                Points = points,
+                UserName = userName,
+            });
+            context.SaveChanges();
         }
 
         private static void ShowMeAllWords(string input)
@@ -164,11 +234,6 @@ namespace DataBaseVocabulary
             }
 
             return result;
-        }
-
-        private static void UpdateWordsInDB(string input)
-        {
-            return;
         }
 
         private static void RemoveWordsFromDb(string input)

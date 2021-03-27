@@ -10,7 +10,7 @@ namespace DataBaseVocabulary.Config
         public static Dictionary<string, Menu> Create()
         {
             Dictionary<string, Menu> menus = new Dictionary<string, Menu>();
-            Menu mainMenu = new MainMenu("New Game", "Score", "Add New Words", "Remove Words", "Update Words", "Show Me All Words", "Exit");
+            Menu mainMenu = new MainMenu("New Game", "Score", "Add New Words", "Remove Words", "Show Me All Words", "Exit");
             menus.Add(mainMenu.Name, mainMenu);
 
             Menu addMenu = new AddMenu("English Word", "Bulgarian Word", "Back");
@@ -18,9 +18,6 @@ namespace DataBaseVocabulary.Config
 
             Menu removeMenu = new RemoveMenu("English Word", "Bulgarian Word", "Back");
             menus.Add(removeMenu.Name, removeMenu);
-
-            Menu updateMenu = new UpdateMenu("English Word", "Bulgarian Word", "Back");
-            menus.Add(updateMenu.Name, updateMenu);
 
             Menu showMeAllWordsMenu = new ShowMeAllWordsMenu("English Word", "Bulgarian Word", "Back");
             menus.Add(showMeAllWordsMenu.Name, showMeAllWordsMenu);
